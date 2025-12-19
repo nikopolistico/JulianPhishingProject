@@ -1,28 +1,74 @@
-# First copy this command to create a virtual environment on your project:
+# 🛡️ Phishing Detection System
 
-1: python -m venv myenv
+A machine learning-based phishing detection application that helps identify malicious URLs and phishing attempts. 
 
-# Then activate the venv
-2: venv\Scripts\activate
+## 📋 Prerequisites
 
-# After activate click this link and download the foldr named:
+- Python 3.7 or higher
+- pip package manager
 
-3. phishing_detection_model
+## 🚀 Quick Start
 
-# then attach that folder in your project workspace example structure:
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/your-repo-name.git
+cd your-repo-name
+```
 
-4.
-Your project/
-    /venv
-    /phishing_detection_model
-    app.py
-    requirements.txt
+### 2. Create Virtual Environment
+```bash
+python -m venv myenv
+```
 
+### 3. Activate Virtual Environment
 
-# Ensure nga same structure tapos install the requirements.txt
+**Windows:**
+```bash
+myenv\Scripts\activate
+```
 
-5. pip install -r requirements.txt
+**Linux/Mac:**
+```bash
+source myenv/bin/activate
+```
 
-# After the installation is installed na then run:
+### 4. Download Model Files
 
-6. python app.py
+Download the `phishing_detection_model` folder and place it in your project directory. 
+
+### 5. Project Structure
+
+Ensure your project follows this structure:
+```
+your-project/
+├── myenv/
+├── phishing_detection_model/
+├── app.py
+└── requirements.txt
+```
+
+### 6. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 7. Run the Application
+```bash
+python app.py
+```
+
+## 🔧 Troubleshooting
+
+If you encounter any issues, ensure:
+- Python version is 3.7+
+- Virtual environment is activated
+- All dependencies are installed correctly
+
+## 📝 License
+
+[Add your license here]
+
+## 👤 Author
+
+Your Name - [@yourusername](https://github.com/yourusername)
+```
