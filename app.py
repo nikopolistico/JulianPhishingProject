@@ -14,63 +14,124 @@ model.to(device)
 model.eval()
 
 id_to_label = {0: 'safe', 1: 'phishing'}
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 def get_ai_explanation(email_type, email_content, confidence):
     """Get AI-powered analysis of the email"""
+    
+    # Truncate email content if too long to avoid token limits
+    max_email_length = 300  # ✅ REDUCED from 500 to 300
+    if len(email_content) > max_email_length:  
+        email_content = email_content[:max_email_length] + "..."
+    
     if email_type == 'safe':
-        prompt = f"Briefly explain why this email appears legitimate and safe:\n\n{email_content}"
+        prompt = f"In 2-3 short sentences, explain why this email appears safe:\n\n{email_content}"  # ✅ SHORTER
     else:  
-        prompt = f"""🚨 PHISHING EMAIL DETECTED!   
+        prompt = f"""Phishing email detected ({confidence*100:.2f}% confidence).
 
-Email Content:  {email_content}
+Email:  {email_content}
 
-Provide a detailed security analysis:  
-1. What specific red flags make this email suspicious?  
-2. What phishing techniques are being used (urgency, impersonation, etc.)?
-3. What information is the attacker trying to steal?
-4. What could happen if someone falls for this?  
-5. How can users protect themselves?
+Provide a BRIEF security analysis (max 150 words):
+1. Main red flags
+2. Phishing technique used
+3. What attacker wants
+4. Quick protection tips
 
-Be specific and educational."""
+Keep it concise and clear."""  # ✅ MUCH SHORTER PROMPT
 
     try:
+        print("🔄 Calling OpenRouter API...")
+        
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "Content-Type": "application/json",
+                "HTTP-Referer": "http://localhost:7860",
+                "X-Title": "Phishing Email Detector"
             },
             data=json.dumps({
-                "model": "meta-llama/llama-3.1-8b-instruct: free",
-                "messages": [{"role": "user", "content":  prompt}],
-                "max_tokens": 1000
+                "model": "google/gemini-2.0-flash-exp:free",  # ✅ CHANGED back to Gemini (more reliable)
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a concise cybersecurity expert. Keep responses under 150 words."  # ✅ SYSTEM INSTRUCTION
+                    },
+                    {
+                        "role": "user", 
+                        "content": prompt
+                    }
+                ],
+                "max_tokens": 300,  # ✅ REDUCED from 800 to 300
+                "temperature": 0.5  # ✅ REDUCED for more focused responses
             }),
-            timeout=30
+            timeout=30  # ✅ REDUCED timeout
         )
         
+        print(f"📡 API Response Status: {response.status_code}")
+        
         if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content']
+            result = response.json()
+            if 'choices' in result and len(result['choices']) > 0:
+                explanation = result['choices'][0]['message']['content']
+                print("✅ AI explanation received successfully")
+                
+                # ✅ EXTRA SAFETY:  Truncate if still too long
+                max_chars = 800
+                if len(explanation) > max_chars:
+                    explanation = explanation[:max_chars] + "..."
+                
+                return explanation
+            else:
+                print("⚠️ Unexpected response format")
+                return "⚠️ AI response format error.  Using fallback analysis."
         else:
-            return f"❌ API Error: {response.status_code}"
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
+            error_detail = response.text
+            print(f"❌ API Error: {error_detail}")
+            
+            # ✅ FALLBACK:  Provide manual analysis if API fails
+            if email_type == 'phishing':
+                return """⚠️ API temporarily unavailable. Basic Analysis: 
+
+This email shows phishing characteristics such as:
+• Urgent/threatening language
+• Requests for sensitive information
+• Suspicious links or sender address
+• Generic greetings
+
+🛡️ Protection:  Do NOT click links, verify sender independently, report as spam."""
+            else:
+                return "✅ This email appears legitimate based on standard indicators.  However, always verify sender authenticity before taking action."
+            
+    except requests.exceptions. Timeout:
+        print("⏱️ Request timeout")
+        return "⏱️ AI analysis timed out. Email classification is complete above."
+    except requests.exceptions. ConnectionError:
+        print("🔌 Connection error")
+        return "🔌 Connection error. Email classification is complete above."
+    except Exception as e:  
+        print(f"❌ Exception: {str(e)}")
+        return f"⚠️ Analysis error.  Classification is complete above."
 
 def analyze_email(email_text):
     """Analyze email for phishing"""
     if not email_text. strip():
-        return "⚠️ No email content to analyze", {}, ""
+        return "⚠️ No email content to analyze", {}, "Please paste an email to analyze."
+    
+    print("🔍 Starting email analysis...")
     
     inputs = tokenizer(email_text, return_tensors="pt", truncation=True, 
                       padding=True, max_length=512).to(device)
     
     with torch.no_grad():
         outputs = model(**inputs)
-        probs = torch.nn. functional.softmax(outputs. logits, dim=-1)[0]
+        probs = torch. nn.functional.softmax(outputs. logits, dim=-1)[0]
     
     result = {id_to_label[i]: float(probs[i]) for i in range(len(id_to_label))}
     predicted = max(result, key=result.get)
     confidence = result[predicted]
+    
+    print(f"🎯 Prediction: {predicted} ({confidence:.2%})")
     
     # Determine risk level
     if predicted == 'phishing':
@@ -95,14 +156,14 @@ def analyze_email(email_text):
             risk_level = "🟢 LOW RISK"
             action = "✅ Likely safe, but verify sender if unsure"
             color = "#44cc44"
-        else: 
+        else:  
             risk_level = "🟡 UNCERTAIN"
             action = "⚠️ Review carefully before clicking links"
             color = "#ffaa00"
     
     # Format status message
     status_message = f"""
-<div style="padding: 20px; border-radius: 10px; background:  linear-gradient(135deg, {color}22, {color}44); border-left: 5px solid {color};">
+<div style="padding: 20px; border-radius: 10px; background: linear-gradient(135deg, {color}22, {color}44); border-left: 5px solid {color};">
 <h2 style="margin-top: 0;">{risk_level}</h2>
 <p><strong>Classification:</strong> {predicted. upper()}</p>
 <p><strong>Confidence:</strong> {confidence:.2%}</p>
@@ -112,6 +173,8 @@ def analyze_email(email_text):
     
     # Get AI explanation
     explanation = get_ai_explanation(predicted, email_text, confidence)
+    
+    print("✅ Analysis complete!")
     
     return status_message, result, explanation
 
@@ -125,7 +188,7 @@ custom_css = """
 #header {
     background: linear-gradient(90deg, #8b0000 0%, #dc143c 50%, #8b0000 100%);
     padding: 30px;
-    border-radius:  15px;
+    border-radius: 15px;
     margin-bottom: 20px;
     box-shadow: 0 8px 20px rgba(220, 20, 60, 0.5);
     text-align: center;
@@ -141,7 +204,7 @@ custom_css = """
 }
 
 #analysis-section {
-    background: linear-gradient(135deg, #1f1f1f 0%, #1a2a2a 100%);
+    background:  linear-gradient(135deg, #1f1f1f 0%, #1a2a2a 100%);
     padding: 20px;
     border-radius: 12px;
     border: 2px solid #004466;
@@ -179,7 +242,7 @@ label {
 with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.Base()) as demo:
     
     # Header
-    with gr. Column(elem_id="header"):
+    with gr.Column(elem_id="header"):
         gr.Markdown("""
         # 🎣 PHISHING EMAIL DETECTION SYSTEM
         ## 📬 AI-Powered Email Security Scanner
@@ -199,13 +262,14 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
             gr.Markdown("""
             **📧 Enter Email Content Below:**
             
-            Paste the complete email you want to analyze. Include the sender, subject, and full message body for best results.
+            Paste the complete email you want to analyze.  Include the sender, subject, and full message body for best results.
             """)
             
-            email_display = gr.Textbox(
+            email_display = gr. Textbox(
                 label="Email Content",
                 lines=16,
-                interactive=True
+                interactive=True,
+                placeholder="Paste your email here..."
             )
             
             # Guide for composing emails
@@ -254,8 +318,9 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
             
             ai_explanation = gr. Textbox(
                 label="🤖 AI Security Analysis & Recommendations",
-                lines=12,
-                interactive=False
+                lines=8,  # ✅ REDUCED from 12 to 8
+                interactive=False,
+                placeholder="AI analysis will appear here..."
             )
     
     # Information Section
@@ -267,9 +332,9 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
             
             ### 🎯 How It Works
             1. **Paste Email**:  Copy any email content you want to verify
-            2. **AI Analysis**:  Advanced CodeBERT model scans for phishing patterns
+            2. **AI Analysis**: Advanced CodeBERT model scans for phishing patterns
             3. **Risk Assessment**: Get classified risk level and confidence score
-            4. **Expert Guidance**:  Receive AI-powered recommendations and explanations
+            4. **Expert Guidance**: Receive AI-powered recommendations and explanations
             
             ### 🛡️ Detection Capabilities
             - ✅ **Real-time Analysis**: Instant phishing detection using fine-tuned AI
@@ -285,7 +350,7 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
             - 🔴 **Suspicious Links**: Misspelled domains (paypa1.com), unusual URLs (. ru, .tk)
             - 🔴 **Generic Greetings**: "Dear Customer", "Valued User" instead of your name
             - 🔴 **Unrealistic Offers**:  Lottery wins, inheritances, free money
-            - 🔴 **Impersonation**:  Pretending to be banks, tech support, government
+            - 🔴 **Impersonation**: Pretending to be banks, tech support, government
             - 🔴 **Poor Quality**: Spelling errors, bad grammar, formatting issues
             - 🔴 **Pressure Tactics**: Time limits, threats of consequences
             
@@ -313,7 +378,7 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
             
             **🔬 Technology Stack:**  
             - Fine-tuned CodeBERT transformer model
-            - LLaMA 3.1 AI for detailed analysis
+            - Google Gemini AI for detailed analysis
             - Real-time threat detection algorithms
             
             **📈 Model Performance:**  
@@ -322,7 +387,7 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
             - Classes: Safe vs Phishing
             
             **📅 Last Updated:** December 2025  
-            **🔒 Privacy:** All analysis is performed securely.  Emails are not stored. 
+            **🔒 Privacy:** All analysis is performed securely.  Emails are not stored.   
             """)
     
     # Connect button
