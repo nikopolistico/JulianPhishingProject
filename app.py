@@ -14,20 +14,20 @@ model.to(device)
 model.eval()
 
 id_to_label = {0: 'safe', 1: 'phishing'}
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 def get_ai_explanation(email_type, email_content, confidence):
-    """Get AI-powered analysis of the email"""
+    """Get AI-powered analysis of the email with reasoning"""
     
     # Truncate email content if too long to avoid token limits
-    max_email_length = 300  # ✅ REDUCED from 500 to 300
-    if len(email_content) > max_email_length:  
+    max_email_length = 300
+    if len(email_content) > max_email_length:   
         email_content = email_content[:max_email_length] + "..."
     
     if email_type == 'safe':
-        prompt = f"In 2-3 short sentences, explain why this email appears safe:\n\n{email_content}"  # ✅ SHORTER
+        prompt = f"In 2-3 short sentences, explain why this email appears safe:\n\n{email_content}"
     else:  
-        prompt = f"""Phishing email detected ({confidence*100:.2f}% confidence).
+        prompt = f"""Phishing email detected ({confidence*100:.0f}% confidence).
 
 Email:  {email_content}
 
@@ -37,12 +37,13 @@ Provide a BRIEF security analysis (max 150 words):
 3. What attacker wants
 4. Quick protection tips
 
-Keep it concise and clear."""  # ✅ MUCH SHORTER PROMPT
+Keep it concise and clear."""
 
     try:
-        print("🔄 Calling OpenRouter API...")
+        print("🔄 Calling OpenRouter API with reasoning...")
         
-        response = requests.post(
+        # ✅ FIRST API CALL - With reasoning enabled
+        response = requests. post(
             url="https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -51,30 +52,39 @@ Keep it concise and clear."""  # ✅ MUCH SHORTER PROMPT
                 "X-Title": "Phishing Email Detector"
             },
             data=json.dumps({
-                "model": "google/gemini-2.0-flash-exp:free",  # ✅ CHANGED back to Gemini (more reliable)
-                "messages": [
+                "model": "openai/gpt-oss-20b:free",  # ✅ Using reasoning-enabled model
+                "messages":  [
                     {
                         "role": "system",
-                        "content": "You are a concise cybersecurity expert. Keep responses under 150 words."  # ✅ SYSTEM INSTRUCTION
+                        "content": "You are a concise cybersecurity expert. Keep responses under 150 words."
                     },
                     {
                         "role": "user", 
                         "content": prompt
                     }
                 ],
-                "max_tokens": 300,  # ✅ REDUCED from 800 to 300
-                "temperature": 0.5  # ✅ REDUCED for more focused responses
+                "reasoning": {"enabled": True},  # ✅ Enable reasoning
+                "max_tokens":  300,
+                "temperature": 0.5
             }),
-            timeout=30  # ✅ REDUCED timeout
+            timeout=30
         )
         
         print(f"📡 API Response Status: {response.status_code}")
         
         if response.status_code == 200:
             result = response.json()
+            
             if 'choices' in result and len(result['choices']) > 0:
-                explanation = result['choices'][0]['message']['content']
+                message_response = result['choices'][0]['message']
+                explanation = message_response.get('content', '')
+                reasoning_details = message_response.get('reasoning_details', None)
+                
                 print("✅ AI explanation received successfully")
+                
+                # ✅ Optional: Show reasoning if available
+                if reasoning_details: 
+                    print(f"🧠 Reasoning details: {reasoning_details}")
                 
                 # ✅ EXTRA SAFETY:  Truncate if still too long
                 max_chars = 800
@@ -89,9 +99,9 @@ Keep it concise and clear."""  # ✅ MUCH SHORTER PROMPT
             error_detail = response.text
             print(f"❌ API Error: {error_detail}")
             
-            # ✅ FALLBACK:  Provide manual analysis if API fails
+            # ✅ FALLBACK: Provide manual analysis if API fails
             if email_type == 'phishing':
-                return """⚠️ API temporarily unavailable. Basic Analysis: 
+                return """⚠️ API temporarily unavailable. Basic Analysis:  
 
 This email shows phishing characteristics such as:
 • Urgent/threatening language
@@ -106,12 +116,12 @@ This email shows phishing characteristics such as:
     except requests.exceptions. Timeout:
         print("⏱️ Request timeout")
         return "⏱️ AI analysis timed out. Email classification is complete above."
-    except requests.exceptions. ConnectionError:
+    except requests.exceptions.ConnectionError:
         print("🔌 Connection error")
         return "🔌 Connection error. Email classification is complete above."
     except Exception as e:  
         print(f"❌ Exception: {str(e)}")
-        return f"⚠️ Analysis error.  Classification is complete above."
+        return f"⚠️ Analysis error. Classification is complete above."
 
 def analyze_email(email_text):
     """Analyze email for phishing"""
@@ -127,7 +137,7 @@ def analyze_email(email_text):
         outputs = model(**inputs)
         probs = torch. nn.functional.softmax(outputs. logits, dim=-1)[0]
     
-    result = {id_to_label[i]: float(probs[i]) for i in range(len(id_to_label))}
+    result = {id_to_label[i]:  float(probs[i]) for i in range(len(id_to_label))}
     predicted = max(result, key=result.get)
     confidence = result[predicted]
     
@@ -165,7 +175,7 @@ def analyze_email(email_text):
     status_message = f"""
 <div style="padding: 20px; border-radius: 10px; background: linear-gradient(135deg, {color}22, {color}44); border-left: 5px solid {color};">
 <h2 style="margin-top: 0;">{risk_level}</h2>
-<p><strong>Classification:</strong> {predicted. upper()}</p>
+<p><strong>Classification: </strong> {predicted. upper()}</p>
 <p><strong>Confidence:</strong> {confidence:.2%}</p>
 <p><strong>Recommended Action:</strong> {action}</p>
 </div>
@@ -188,15 +198,15 @@ custom_css = """
 #header {
     background: linear-gradient(90deg, #8b0000 0%, #dc143c 50%, #8b0000 100%);
     padding: 30px;
-    border-radius: 15px;
+    border-radius:  15px;
     margin-bottom: 20px;
-    box-shadow: 0 8px 20px rgba(220, 20, 60, 0.5);
+    box-shadow:  0 8px 20px rgba(220, 20, 60, 0.5);
     text-align: center;
     border: 2px solid #ff4444;
 }
 
 #inbox-section {
-    background: linear-gradient(135deg, #1f1f1f 0%, #2a1a1a 100%);
+    background:  linear-gradient(135deg, #1f1f1f 0%, #2a1a1a 100%);
     padding: 20px;
     border-radius:  12px;
     border: 2px solid #660000;
@@ -208,7 +218,7 @@ custom_css = """
     padding: 20px;
     border-radius: 12px;
     border: 2px solid #004466;
-    box-shadow: 0 4px 15px rgba(0, 68, 102, 0.3);
+    box-shadow:  0 4px 15px rgba(0, 68, 102, 0.3);
 }
 
 #compose-guide {
@@ -217,7 +227,7 @@ custom_css = """
     border-radius:  10px;
     border-left: 4px solid #0f4c75;
     margin-top: 15px;
-    margin-bottom: 15px;
+    margin-bottom:  15px;
     box-shadow: 0 2px 10px rgba(15, 76, 117, 0.4);
 }
 
@@ -316,9 +326,9 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
                 num_top_classes=2
             )
             
-            ai_explanation = gr. Textbox(
-                label="🤖 AI Security Analysis & Recommendations",
-                lines=8,  # ✅ REDUCED from 12 to 8
+            ai_explanation = gr.Textbox(
+                label="🤖 AI Security Analysis & Recommendations (with Reasoning)",
+                lines=8,
                 interactive=False,
                 placeholder="AI analysis will appear here..."
             )
@@ -332,17 +342,18 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
             
             ### 🎯 How It Works
             1. **Paste Email**:  Copy any email content you want to verify
-            2. **AI Analysis**: Advanced CodeBERT model scans for phishing patterns
+            2. **AI Analysis**:  Advanced CodeBERT model scans for phishing patterns
             3. **Risk Assessment**: Get classified risk level and confidence score
-            4. **Expert Guidance**: Receive AI-powered recommendations and explanations
+            4. **Expert Guidance**: Receive AI-powered recommendations with reasoning
             
             ### 🛡️ Detection Capabilities
             - ✅ **Real-time Analysis**: Instant phishing detection using fine-tuned AI
             - ✅ **Risk Classification**: Critical, High, Moderate, Low, Safe levels
             - ✅ **Confidence Scoring**: Percentage-based prediction accuracy
-            - ✅ **Threat Explanations**:  Detailed breakdown of suspicious elements
+            - ✅ **Threat Explanations**: Detailed breakdown of suspicious elements
             - ✅ **Actionable Advice**: Clear steps to protect yourself
             - ✅ **95%+ Accuracy**: Trained on thousands of phishing examples
+            - ✅ **AI Reasoning**: Deep thinking analysis with GPT-OSS-20B
             
             ### 🚨 Common Phishing Warning Signs
             - 🔴 **Urgency & Threats**: "Act now!", "Account suspended", "Verify immediately"
@@ -378,7 +389,7 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
             
             **🔬 Technology Stack:**  
             - Fine-tuned CodeBERT transformer model
-            - Google Gemini AI for detailed analysis
+            - GPT-OSS-20B with reasoning capabilities
             - Real-time threat detection algorithms
             
             **📈 Model Performance:**  
@@ -387,7 +398,7 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
             - Classes: Safe vs Phishing
             
             **📅 Last Updated:** December 2025  
-            **🔒 Privacy:** All analysis is performed securely.  Emails are not stored.   
+            **🔒 Privacy:** All analysis is performed securely.  Emails are not stored.    
             """)
     
     # Connect button
