@@ -6,39 +6,37 @@ A machine learning-based phishing detection application that helps identify mali
 
 - Python 3.7 or higher
 - pip package manager
+- Windows OS
 
-## 🚀 Quick Start
+## 🚀 Installation & Setup
 
-### 1. Clone the Repository
+### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/yourusername/your-repo-name.git
+git clone https://github.com/nikopolistico/your-repo-name.git
 cd your-repo-name
 ```
 
-### 2. Create Virtual Environment
+### Step 2: Create Virtual Environment
 ```bash
 python -m venv myenv
 ```
 
-### 3. Activate Virtual Environment
-
-**Windows:**
+### Step 3: Activate Virtual Environment
 ```bash
 myenv\Scripts\activate
 ```
 
-**Linux/Mac:**
-```bash
-source myenv/bin/activate
-```
+### Step 4: Download Model Files
 
-### 4. Download Model Files
+Click the link below to download the required model folder: 
 
-Download the `phishing_detection_model` folder and place it in your project directory. 
+📥 [Download phishing_detection_model](https://drive.google.com/drive/folders/14GL7cAtyBeYRZTCFk0sELtD7G84vqWPW?usp=sharing)
 
-### 5. Project Structure
+Extract and place the `phishing_detection_model` folder in your project directory.
 
-Ensure your project follows this structure:
+### Step 5: Verify Project Structure
+
+Ensure your project follows this structure: 
 ```
 your-project/
 ├── myenv/
@@ -47,28 +45,41 @@ your-project/
 └── requirements.txt
 ```
 
-### 6. Install Dependencies
+### Step 6: Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 7. Run the Application
+### Step 7: Run the Application
 ```bash
 python app.py
 ```
 
+## 🎯 Usage
+
+After running the application, follow the on-screen instructions to detect phishing attempts. 
+
 ## 🔧 Troubleshooting
 
-If you encounter any issues, ensure:
-- Python version is 3.7+
-- Virtual environment is activated
-- All dependencies are installed correctly
+If you encounter any issues:
+- ✅ Ensure Python version is 3.7 or higher
+- ✅ Verify virtual environment is activated
+- ✅ Check that all dependencies installed successfully
+- ✅ Confirm `phishing_detection_model` folder is in the correct location
 
 ## 📝 License
 
-[Add your license here]
+This project is open source and available under the [MIT License](LICENSE).
 
 ## 👤 Author
 
-Your Name - [@yourusername](https://github.com/yourusername)
+**nikopolistico** - [@nikopolistico](https://github.com/nikopolistico)
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! 
+
+---
+
+⭐ If you find this project helpful, please give it a star! 
 ```
