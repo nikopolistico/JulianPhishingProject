@@ -1,8 +1,7 @@
 import gradio as gr
 import torch
 from transformers import RobertaTokenizer, RobertaForSequenceClassification
-import requests
-import json
+from groq import Groq
 from datetime import datetime
 
 # Load model
@@ -14,10 +13,10 @@ model.to(device)
 model.eval()
 
 id_to_label = {0: 'safe', 1: 'phishing'}
-OPENROUTER_API_KEY = "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"
+client = Groq(api_key="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")
 
 def get_ai_explanation(email_type, email_content, confidence):
-    """Get AI-powered analysis of the email with reasoning"""
+    """Get AI-powered analysis of the email with streaming response"""
     
     # Truncate email content if too long to avoid token limits
     max_email_length = 300
@@ -25,168 +24,64 @@ def get_ai_explanation(email_type, email_content, confidence):
         email_content = email_content[:max_email_length] + "..."
     
     if email_type == 'safe':
-        prompt = f"In 2-3 short sentences, explain why this email appears safe:\n\n{email_content}"
+        prompt = f"In 3-4 short sentences (around 300 words), explain why this email appears safe:\n\n{email_content}"
     else:  
         prompt = f"""Phishing email detected ({confidence*100:.0f}% confidence).
 
-Email:  {email_content}
+Email: {email_content}
 
-Provide a BRIEF security analysis (max 150 words):
+Provide a detailed security analysis (around 300 words):
 1. Main red flags
 2. Phishing technique used
 3. What attacker wants
-4. Quick protection tips
+4. Protection tips
 
-Keep it concise and clear."""
+Be thorough and detailed."""
 
     try:
-        print("🔄 Calling OpenRouter API with reasoning...")
+        print("🔄 Calling Groq API with streaming...")
         
-        # ✅ FIRST API CALL - With reasoning enabled
-        response = requests. post(
-            url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "http://localhost:7860",
-                "X-Title": "Phishing Email Detector"
-            },
-            data=json.dumps({
-                "model": "openai/gpt-oss-20b:free",  # ✅ Using reasoning-enabled model
-                "messages":  [
-                    {
-                        "role": "system",
-                        "content": "You are a concise cybersecurity expert. Keep responses under 150 words."
-                    },
-                    {
-                        "role": "user", 
-                        "content": prompt
-                    }
-                ],
-                "reasoning": {"enabled": True},  # ✅ Enable reasoning
-                "max_tokens":  300,
-                "temperature": 0.5
-            }),
-            timeout=30
+        # Call Groq API with streaming enabled
+        stream = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a detailed cybersecurity expert. Provide comprehensive analysis around 300 words."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.5,
+            max_completion_tokens=400,
+            top_p=1,
+            stream=True,
+            stop=None
         )
         
-        print(f"📡 API Response Status: {response.status_code}")
+        print("✅ Starting to receive Groq API stream...")
         
-        if response.status_code == 200:
-            result = response.json()
-            
-            if 'choices' in result and len(result['choices']) > 0:
-                message_response = result['choices'][0]['message']
-                explanation = message_response.get('content', '')
-                reasoning_details = message_response.get('reasoning_details', None)
-                
-                print("✅ AI explanation received successfully")
-                
-                # ✅ Optional: Show reasoning if available
-                if reasoning_details: 
-                    print(f"🧠 Reasoning details: {reasoning_details}")
-                
-                # ✅ EXTRA SAFETY:  Truncate if still too long
-                max_chars = 800
-                if len(explanation) > max_chars:
-                    explanation = explanation[:max_chars] + "..."
-                
-                return explanation
-            else:
-                print("⚠️ Unexpected response format")
-                return "⚠️ AI response format error.  Using fallback analysis."
-        else:
-            error_detail = response.text
-            print(f"❌ API Error: {error_detail}")
-            
-            # ✅ FALLBACK: Provide manual analysis if API fails
-            if email_type == 'phishing':
-                return f"""🚨 PHISHING DETECTED ({confidence*100:.0f}% Confidence)
-
-⚠️ This email contains suspicious characteristics:
-
-🔴 **Red Flags Identified:**
-• Urgent or threatening language designed to create panic
-• Requests for sensitive information (passwords, credit cards, personal data)
-• Suspicious links or sender email address
-• Generic greetings ("Dear User" instead of your name)
-• Impersonation of legitimate companies or organizations
-• Too-good-to-be-true offers or prizes
-
-🎯 **Attacker's Goal:**
-To steal your personal information, login credentials, or financial data through deception.
-
-🛡️ **IMMEDIATE ACTIONS:**
-❌ DO NOT click any links or download attachments
-❌ DO NOT reply or provide any information
-✅ DELETE this email immediately
-✅ Report as spam/phishing
-✅ If you already clicked, change your passwords NOW
-✅ Monitor your accounts for suspicious activity
-
-💡 **Remember:** Legitimate companies NEVER ask for passwords via email!"""
-            else:
-                return f"""✅ EMAIL APPEARS SAFE ({confidence*100:.0f}% Confidence)
-
-🟢 **Safety Indicators:**
-• No urgent threats or pressure tactics
-• Legitimate sender patterns detected
-• No requests for sensitive information
-• Professional language and formatting
-
-⚠️ **Still Exercise Caution:**
-• Verify sender email address matches official domain
-• Hover over links before clicking to check destination
-• When in doubt, contact the company directly through their official website
-• Be wary of unexpected emails, even if they appear safe
-
-🛡️ **Best Practice:** Always verify important requests through independent channels before taking action."""
-            
-    except requests.exceptions.Timeout:
-        print("⏱️ Request timeout")
-        if email_type == 'phishing':
-            return f"""🚨 PHISHING DETECTED ({confidence*100:.0f}% Confidence)
-
-⚠️ AI analysis unavailable, but our model identified phishing patterns.
-
-🔴 **Common Phishing Tactics:**
-• Urgent deadlines and threats
-• Requests for passwords or financial info
-• Suspicious links or attachments
-• Impersonation of trusted organizations
-
-🛡️ **STAY SAFE:** Do NOT click links, reply, or share any information. Delete immediately and report as spam."""
-        else:
-            return f"""✅ EMAIL APPEARS SAFE ({confidence*100:.0f}% Confidence)\n\nWhile AI analysis is unavailable, our model didn't detect phishing patterns. However, always verify sender authenticity and hover over links before clicking."""
-    except requests.exceptions.ConnectionError:
-        print("🔌 Connection error")
-        if email_type == 'phishing':
-            return f"""🚨 PHISHING DETECTED ({confidence*100:.0f}% Confidence)
-
-⚠️ Network unavailable for detailed analysis.
-
-🔴 **Detected Threats:** This email shows phishing characteristics. Common signs include urgent language, suspicious links, requests for personal data, and impersonation.
-
-🛡️ **ACTION REQUIRED:** DELETE immediately, do NOT interact with this email in any way."""
-        else:
-            return f"""✅ EMAIL APPEARS SAFE ({confidence*100:.0f}% Confidence)\n\nNo phishing patterns detected. Still, verify sender and links before taking action."""
+        # Stream the response word by word
+        full_response = ""
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                full_response += content
+                yield full_response
+        
+        print("✅ Streaming complete!")
+        
     except Exception as e:
-        print(f"❌ Exception: {str(e)}")
-        if email_type == 'phishing':
-            return f"""🚨 PHISHING DETECTED ({confidence*100:.0f}% Confidence)
-
-⚠️ Detailed analysis unavailable.
-
-🔴 **Key Risks:** Phishing emails attempt to steal personal information through deceptive tactics like fake links, urgent threats, and impersonation.
-
-🛡️ **PROTECT YOURSELF:** Never click suspicious links, don't share passwords via email, verify sender independently, and report as spam."""
-        else:
-            return f"""✅ EMAIL APPEARS SAFE ({confidence*100:.0f}% Confidence)\n\nNo immediate threats detected. Always practice safe email habits regardless of classification."""
+        print(f"❌ Groq API error: {str(e)}")
+        yield f"⚠️ AI analysis unavailable. Error: {str(e)}"
 
 def analyze_email(email_text):
-    """Analyze email for phishing"""
-    if not email_text. strip():
-        return "⚠️ No email content to analyze", {}, "Please paste an email to analyze."
+    """Analyze email for phishing with streaming AI response"""
+    if not email_text.strip():
+        yield "⚠️ No email content to analyze", {}, "Please paste an email to analyze."
+        return
     
     print("🔍 Starting email analysis...")
     
@@ -195,9 +90,9 @@ def analyze_email(email_text):
     
     with torch.no_grad():
         outputs = model(**inputs)
-        probs = torch. nn.functional.softmax(outputs. logits, dim=-1)[0]
+        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)[0]
     
-    result = {id_to_label[i]:  float(probs[i]) for i in range(len(id_to_label))}
+    result = {id_to_label[i]: float(probs[i]) for i in range(len(id_to_label))}
     predicted = max(result, key=result.get)
     confidence = result[predicted]
     
@@ -235,18 +130,20 @@ def analyze_email(email_text):
     status_message = f"""
 <div style="padding: 20px; border-radius: 10px; background: linear-gradient(135deg, {color}22, {color}44); border-left: 5px solid {color};">
 <h2 style="margin-top: 0;">{risk_level}</h2>
-<p><strong>Classification: </strong> {predicted. upper()}</p>
+<p><strong>Classification: </strong> {predicted.upper()}</p>
 <p><strong>Confidence:</strong> {confidence:.2%}</p>
 <p><strong>Recommended Action:</strong> {action}</p>
 </div>
 """
     
-    # Get AI explanation
-    explanation = get_ai_explanation(predicted, email_text, confidence)
+    # Yield the classification result first (display immediately)
+    yield status_message, result, "⏳ Loading AI analysis..."
+    
+    # Then stream the AI explanation word by word
+    for explanation in get_ai_explanation(predicted, email_text, confidence):
+        yield status_message, result, explanation
     
     print("✅ Analysis complete!")
-    
-    return status_message, result, explanation
 
 # Custom CSS - Cybersecurity Theme (White, Blue, Sky Blue, Black)
 custom_css = """
@@ -359,6 +256,10 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
                 placeholder="Paste your email here..."
             )
             
+            analyze_btn = gr.Button("🔍 Analyze Email for Threats", 
+                                   variant="primary", 
+                                   size="lg")
+            
             # Guide for composing emails
             with gr.Column(elem_id="compose-guide"):
                 gr.Markdown("""
@@ -384,10 +285,6 @@ with gr.Blocks(title="Phishing Email Detector", css=custom_css, theme=gr.themes.
                 - ⚠️ Too-good-to-be-true offers
                 - ⚠️ Grammar and spelling errors
                 """)
-            
-            analyze_btn = gr.Button("🔍 Analyze Email for Threats", 
-                                   variant="primary", 
-                                   size="lg")
         
         # Right side - Analysis Results
         with gr.Column(scale=1, elem_id="analysis-section"):
