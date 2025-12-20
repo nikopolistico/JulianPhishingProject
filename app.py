@@ -14,7 +14,7 @@ model.to(device)
 model.eval()
 
 id_to_label = {0: 'safe', 1: 'phishing'}
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 def get_ai_explanation(email_type, email_content, confidence):
     """Get AI-powered analysis of the email with reasoning"""
