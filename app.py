@@ -14,7 +14,7 @@ model.to(device)
 model.eval()
 
 id_to_label = {0: 'safe', 1: 'phishing'}
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 def get_ai_explanation(email_type, email_content, confidence):
     """Get AI-powered analysis of the email with reasoning"""
@@ -101,27 +101,87 @@ Keep it concise and clear."""
             
             # ✅ FALLBACK: Provide manual analysis if API fails
             if email_type == 'phishing':
-                return """⚠️ API temporarily unavailable. Basic Analysis:  
+                return f"""🚨 PHISHING DETECTED ({confidence*100:.0f}% Confidence)
 
-This email shows phishing characteristics such as:
-• Urgent/threatening language
-• Requests for sensitive information
-• Suspicious links or sender address
-• Generic greetings
+⚠️ This email contains suspicious characteristics:
 
-🛡️ Protection:  Do NOT click links, verify sender independently, report as spam."""
+🔴 **Red Flags Identified:**
+• Urgent or threatening language designed to create panic
+• Requests for sensitive information (passwords, credit cards, personal data)
+• Suspicious links or sender email address
+• Generic greetings ("Dear User" instead of your name)
+• Impersonation of legitimate companies or organizations
+• Too-good-to-be-true offers or prizes
+
+🎯 **Attacker's Goal:**
+To steal your personal information, login credentials, or financial data through deception.
+
+🛡️ **IMMEDIATE ACTIONS:**
+❌ DO NOT click any links or download attachments
+❌ DO NOT reply or provide any information
+✅ DELETE this email immediately
+✅ Report as spam/phishing
+✅ If you already clicked, change your passwords NOW
+✅ Monitor your accounts for suspicious activity
+
+💡 **Remember:** Legitimate companies NEVER ask for passwords via email!"""
             else:
-                return "✅ This email appears legitimate based on standard indicators.  However, always verify sender authenticity before taking action."
+                return f"""✅ EMAIL APPEARS SAFE ({confidence*100:.0f}% Confidence)
+
+🟢 **Safety Indicators:**
+• No urgent threats or pressure tactics
+• Legitimate sender patterns detected
+• No requests for sensitive information
+• Professional language and formatting
+
+⚠️ **Still Exercise Caution:**
+• Verify sender email address matches official domain
+• Hover over links before clicking to check destination
+• When in doubt, contact the company directly through their official website
+• Be wary of unexpected emails, even if they appear safe
+
+🛡️ **Best Practice:** Always verify important requests through independent channels before taking action."""
             
-    except requests.exceptions. Timeout:
+    except requests.exceptions.Timeout:
         print("⏱️ Request timeout")
-        return "⏱️ AI analysis timed out. Email classification is complete above."
+        if email_type == 'phishing':
+            return f"""🚨 PHISHING DETECTED ({confidence*100:.0f}% Confidence)
+
+⚠️ AI analysis unavailable, but our model identified phishing patterns.
+
+🔴 **Common Phishing Tactics:**
+• Urgent deadlines and threats
+• Requests for passwords or financial info
+• Suspicious links or attachments
+• Impersonation of trusted organizations
+
+🛡️ **STAY SAFE:** Do NOT click links, reply, or share any information. Delete immediately and report as spam."""
+        else:
+            return f"""✅ EMAIL APPEARS SAFE ({confidence*100:.0f}% Confidence)\n\nWhile AI analysis is unavailable, our model didn't detect phishing patterns. However, always verify sender authenticity and hover over links before clicking."""
     except requests.exceptions.ConnectionError:
         print("🔌 Connection error")
-        return "🔌 Connection error. Email classification is complete above."
-    except Exception as e:  
+        if email_type == 'phishing':
+            return f"""🚨 PHISHING DETECTED ({confidence*100:.0f}% Confidence)
+
+⚠️ Network unavailable for detailed analysis.
+
+🔴 **Detected Threats:** This email shows phishing characteristics. Common signs include urgent language, suspicious links, requests for personal data, and impersonation.
+
+🛡️ **ACTION REQUIRED:** DELETE immediately, do NOT interact with this email in any way."""
+        else:
+            return f"""✅ EMAIL APPEARS SAFE ({confidence*100:.0f}% Confidence)\n\nNo phishing patterns detected. Still, verify sender and links before taking action."""
+    except Exception as e:
         print(f"❌ Exception: {str(e)}")
-        return f"⚠️ Analysis error. Classification is complete above."
+        if email_type == 'phishing':
+            return f"""🚨 PHISHING DETECTED ({confidence*100:.0f}% Confidence)
+
+⚠️ Detailed analysis unavailable.
+
+🔴 **Key Risks:** Phishing emails attempt to steal personal information through deceptive tactics like fake links, urgent threats, and impersonation.
+
+🛡️ **PROTECT YOURSELF:** Never click suspicious links, don't share passwords via email, verify sender independently, and report as spam."""
+        else:
+            return f"""✅ EMAIL APPEARS SAFE ({confidence*100:.0f}% Confidence)\n\nNo immediate threats detected. Always practice safe email habits regardless of classification."""
 
 def analyze_email(email_text):
     """Analyze email for phishing"""
@@ -188,63 +248,80 @@ def analyze_email(email_text):
     
     return status_message, result, explanation
 
-# Custom CSS - Phishing Cybersecurity Theme
+# Custom CSS - Cybersecurity Theme (White, Blue, Sky Blue, Black)
 custom_css = """
-. gradio-container {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif ! important;
-    background: linear-gradient(135deg, #1a0a0a 0%, #2d1414 50%, #1a0a0a 100%) !important;
+.gradio-container {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    background: linear-gradient(135deg, #000814 0%, #001d3d 50%, #000814 100%) !important;
 }
 
 #header {
-    background: linear-gradient(90deg, #8b0000 0%, #dc143c 50%, #8b0000 100%);
+    background: linear-gradient(90deg, #0077b6 0%, #00b4d8 50%, #0077b6 100%);
     padding: 30px;
-    border-radius:  15px;
+    border-radius: 15px;
     margin-bottom: 20px;
-    box-shadow:  0 8px 20px rgba(220, 20, 60, 0.5);
+    box-shadow: 0 8px 20px rgba(0, 180, 216, 0.5);
     text-align: center;
-    border: 2px solid #ff4444;
+    border: 2px solid #48cae4;
 }
 
 #inbox-section {
-    background:  linear-gradient(135deg, #1f1f1f 0%, #2a1a1a 100%);
+    background: linear-gradient(135deg, #001219 0%, #003049 100%);
     padding: 20px;
-    border-radius:  12px;
-    border: 2px solid #660000;
-    box-shadow: 0 4px 15px rgba(139, 0, 0, 0.3);
+    border-radius: 12px;
+    border: 2px solid #0077b6;
+    box-shadow: 0 4px 15px rgba(0, 119, 182, 0.3);
 }
 
 #analysis-section {
-    background:  linear-gradient(135deg, #1f1f1f 0%, #1a2a2a 100%);
+    background: linear-gradient(135deg, #001219 0%, #003049 100%);
     padding: 20px;
     border-radius: 12px;
-    border: 2px solid #004466;
-    box-shadow:  0 4px 15px rgba(0, 68, 102, 0.3);
+    border: 2px solid #00b4d8;
+    box-shadow: 0 4px 15px rgba(0, 180, 216, 0.3);
 }
 
 #compose-guide {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background: linear-gradient(135deg, #001524 0%, #002642 100%);
     padding: 15px;
-    border-radius:  10px;
-    border-left: 4px solid #0f4c75;
+    border-radius: 10px;
+    border-left: 4px solid #48cae4;
     margin-top: 15px;
-    margin-bottom:  15px;
-    box-shadow: 0 2px 10px rgba(15, 76, 117, 0.4);
+    margin-bottom: 15px;
+    box-shadow: 0 2px 10px rgba(72, 202, 228, 0.4);
 }
 
 .primary {
-    background: linear-gradient(90deg, #dc143c 0%, #8b0000 100%) !important;
+    background: linear-gradient(90deg, #0077b6 0%, #00b4d8 100%) !important;
     border: none !important;
     font-weight: bold !important;
-    box-shadow: 0 4px 10px rgba(220, 20, 60, 0.4) !important;
+    color: white !important;
+    box-shadow: 0 4px 10px rgba(0, 180, 216, 0.5) !important;
+}
+
+.primary:hover {
+    background: linear-gradient(90deg, #0096c7 0%, #48cae4 100%) !important;
+    box-shadow: 0 6px 15px rgba(72, 202, 228, 0.6) !important;
 }
 
 label {
-    color: #e0e0e0 !important;
+    color: #90e0ef !important;
     font-weight: bold !important;
 }
 
-. markdown {
-    color: #d0d0d0 !important;
+.markdown {
+    color: #caf0f8 !important;
+}
+
+textarea, input {
+    background: #001a2c !important;
+    color: #e0f4ff !important;
+    border: 1px solid #0077b6 !important;
+}
+
+textarea:focus, input:focus {
+    border: 2px solid #00b4d8 !important;
+    box-shadow: 0 0 10px rgba(0, 180, 216, 0.3) !important;
 }
 """
 
