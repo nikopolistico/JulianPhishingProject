@@ -71,10 +71,6 @@ If you encounter any issues:
 
 This project is open source and available under the [MIT License](LICENSE).
 
-## 👤 Author
-
-**nikopolistico** - [@nikopolistico](https://github.com/nikopolistico)
-
 ## 🤝 Contributing
 
 Contributions, issues, and feature requests are welcome! 
